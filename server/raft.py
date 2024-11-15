@@ -93,16 +93,22 @@ class RaftNode(RaftServiceServicer):
 
     def start_election(self):
         """Start a new election if no leader heartbeat received."""
-        self.update_role("Candidate")
-        self.current_term += 1
-        self.voted_for = self.node_id
-        self.votes_received = 1  # Vote for self
-        logger.info("----------------------Election Started----------------------")
-        logger.info(f"[{self.role}] Node {self.node_id} started an election for term {self.current_term}")
+        if self.role != "Leader":
+            self.update_role("Candidate")
+            self.current_term += 1
+            self.voted_for = self.node_id
+            self.votes_received = 1  # Vote for self
+            logger.info("----------------------Election Started----------------------")
+            logger.info(f"[{self.role}] Node {self.node_id} started an election for term {self.current_term}")
 
-        # Send RequestVote RPCs to all peers
-        for peer in self.peers:
-            threading.Thread(target=self.request_vote, args=(peer,)).start()
+            # Send RequestVote RPCs to all peers
+            for peer in self.peers:
+                threading.Thread(target=self.request_vote, args=(peer,)).start()
+            
+            # Start a new election timer
+            self.election_timer.cancel()
+            self.election_timer = threading.Timer(self.election_timeout, self.start_election)
+            self.election_timer.start()
 
     def request_vote(self, peer: str):
         """Send RequestVote RPC to a peer."""
@@ -127,6 +133,7 @@ class RaftNode(RaftServiceServicer):
 
             if self.votes_received > len(self.peers) // 2:
                 self.become_leader()
+        
         logger.info("----------------------Election Ended----------------------")
 
     def become_leader(self):
@@ -260,11 +267,13 @@ class RaftNode(RaftServiceServicer):
             self.commit_index += 1  # Increment commit index
             self.save_log()  # Persist the log after committing
             logger.info(f"[{self.role}] Log entry committed by majority. Data: {data}")
+            logger.info("----------------------Propose Log Entry Concluded ----------------------")
             return True
         else:
             logger.info(f"[{self.role}] Not enough votes to commit log entry. Votes received: {votes_received}")
+            logger.info("----------------------Propose Log Entry Concluded ----------------------")
             return False
-        logger.info("----------------------Propose Log Entry Concluded ----------------------")
+        
 
     # RPC handlers for Raft protocol
     def RequestVote(self, request, context):
@@ -289,7 +298,7 @@ class RaftNode(RaftServiceServicer):
         if request.term > self.current_term:
             logger.info(f"[{self.role}] Term updated: {self.current_term} -> {request.term}. Becoming follower.")
             self.current_term = request.term
-            self.role = 'follower'
+            self.role = 'Follower'
             self.voted_for = None
             # self.save_state() // Review later
 
