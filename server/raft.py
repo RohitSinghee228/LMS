@@ -197,7 +197,7 @@ class RaftNode(RaftServiceServicer):
                 logger.info(f"[{self.role}] Term out of date. Stepping down. Peer term: {response.term}, current term: {self.current_term}")
                 self.current_term = response.term
                 self.update_role("Follower")
-                self.save_term()
+                # self.save_term()
 
             return response
 
@@ -259,7 +259,7 @@ class RaftNode(RaftServiceServicer):
                 logger.info(f"[{self.role}] Term out of date. Stepping down. Peer term: {response.term}, current term: {self.current_term}")
                 self.current_term = response.term
                 self.update_role("Follower")
-                self.save_term()
+                # self.save_term()
                 return False
 
         # If a majority of votes are received, commit the log entry
@@ -298,7 +298,7 @@ class RaftNode(RaftServiceServicer):
         if request.term > self.current_term:
             logger.info(f"[{self.role}] Term updated: {self.current_term} -> {request.term}. Becoming follower.")
             self.current_term = request.term
-            self.role = 'Follower'
+            self.update_role("Follower")
             self.voted_for = None
             # self.save_state() // Review later
 
@@ -306,7 +306,8 @@ class RaftNode(RaftServiceServicer):
         self.election_timer.cancel()
         self.election_timer = threading.Timer(self._random_timeout(), self.start_election)
         self.election_timer.start()
-
+        logger.info(f"[{self.role}] Received Heartbeat {self.heartbeat_count} from {request.leader_id}.")
+        self.heartbeat_count += 1
         # Check log consistency with prev_log_index and prev_log_term
         if request.prev_log_index >= 0:
             if len(self.log) <= request.prev_log_index:
