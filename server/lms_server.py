@@ -42,11 +42,16 @@ class LMSServer(lms_pb2_grpc.LMSServicer):
         self.sessions = {}
         logger.info("LMS Server initialized")
     
+    def save_file_on_all_nodes(self, file_data, filename):
+        """Save the file data to a specified directory on all nodes."""
+        raft_service.upload_to_all_nodes(filename, file_data)
+    
     def save_file(self, file_data, filename):
         """Save the file data to a specified directory."""
         file_path = os.path.join(FILE_STORAGE_DIR, filename)
         with open(file_path, 'wb') as f:
             f.write(file_data)
+        self.save_file_on_all_nodes(file_data, filename)
         return file_path
 
     # --- Helper Functions ---

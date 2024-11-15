@@ -20,6 +20,7 @@ service RaftService {
     rpc RequestVote (VoteRequest) returns (VoteResponse);  // Request for votes in leader election
     rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse);  // Append logs
     rpc GetLeader (Empty) returns (LeaderInfo);  // Get current leader info
+    rpc UploadFileAll(UploadFileAllRequest) returns (UploadFileAllResponse); // Upload files
 }
 
 // ---- LMS Message Definitions ----
@@ -215,4 +216,13 @@ message Empty {}
 
 message LeaderInfo {
     string leader_address = 1;
+}
+
+message UploadFileAllRequest {
+    string filename = 1;
+    bytes data = 2;
+}
+
+message UploadFileAllResponse {
+    string status = 1;
 }

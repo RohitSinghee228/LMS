@@ -5,12 +5,13 @@ import os
 import json
 import threading
 import logging
+from conts import FILE_STORAGE_DIR
 from concurrent import futures
 from typing import List
 from lms_pb2 import (
     VoteRequest, VoteResponse,
     AppendEntriesRequest, AppendEntriesResponse,
-    LogEntry, LeaderInfo
+    LogEntry, LeaderInfo, UploadFileAllResponse, UploadFileAllRequest
 )
 
 from lms_pb2_grpc import RaftServiceServicer, add_RaftServiceServicer_to_server, RaftServiceStub
@@ -340,6 +341,23 @@ class RaftNode(RaftServiceServicer):
             leader_address = ""
 
         return LeaderInfo(leader_address=leader_address)
+    
+    def upload_to_all_nodes(self, file_name, file_content):
+        for peer in self.peers:
+            stub = self._get_stub(peer)
+            try:
+                request = UploadFileAllRequest(filename=file_name, data=file_content)
+                response = stub.UploadFileAll(request)
+            except grpc.RpcError as e:
+                logger.info(f"[{self.role}] Failed to upload file to {peer}: Server did not respond")
+    
+    def UploadFileAll(self, request, context):
+        file_name = request.filename
+        file_content = request.data
+        file_path = os.path.join(FILE_STORAGE_DIR, file_name)
+        with open(file_path, 'wb') as f:
+            f.write(file_content)
+        return UploadFileAllResponse(status="success")
 
 # To run the server, create a function similar to the following:
 def serve(peers: List[str]):
